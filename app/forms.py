@@ -1,11 +1,11 @@
 from flask_wtf import FlaskForm
 from wtforms import (
     StringField, TextAreaField, IntegerField, BooleanField, SubmitField,
-    SelectMultipleField, widgets, DateField, TimeField, SelectField, FloatField
+    SelectMultipleField, widgets, DateField, TimeField, SelectField, FloatField, HiddenField
 )
 from wtforms.validators import DataRequired, NumberRange, Length, Optional, ValidationError
 from .models import Kid, Activity
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 class MultiCheckboxField(SelectMultipleField):
     widget = widgets.ListWidget(prefix_label=False)
@@ -74,19 +74,48 @@ class EditScheduledEventDetailsForm(FlaskForm):
     is_overnight_camp = BooleanField('Is Overnight Camp')
     submit_edit_details = SubmitField('Update Details')
 
-class ScheduleRangeForm(FlaskForm):
-    # ... (definition as before) ...
-    kid_id = SelectField('Select Kid', coerce=int, validators=[DataRequired()])
-    start_date = DateField('Start Date', validators=[DataRequired()], format='%Y-%m-%d', default=lambda: date.today())
-    end_date = DateField('End Date', validators=[DataRequired()], format='%Y-%m-%d', default=lambda: date.today() + timedelta(days=6))
-    submit_range_schedule = SubmitField('Auto-Schedule Regular Activities for Range')
-    def __init__(self, *args, **kwargs):
-        super(ScheduleRangeForm, self).__init__(*args, **kwargs)
-        self.kid_id.choices = [(0, "--- Select a Kid ---")] + [(k.id, k.name) for k in Kid.query.order_by(Kid.name).all()]
-    def validate_end_date(self, field):
-        if self.start_date.data and field.data:
-            if field.data < self.start_date.data: raise ValidationError('End date must not be earlier than start date.')
-            if (field.data - self.start_date.data).days > 30 : raise ValidationError('Date range cannot exceed 31 days for auto-scheduling.')
+
+class AutoScheduleMultiDatesForm(FlaskForm):
+    """Form for scheduling multiple specific days for a kid"""
+
+    kid_id = SelectField('Kid', coerce=int, validators=[DataRequired()])
+
+    # Hidden field for storing comma-separated dates
+    selected_dates = HiddenField('Selected Dates', validators=[
+        DataRequired(message="Please select at least one date")
+    ])
+
+    submit_range_schedule = SubmitField('Auto-Schedule Selected Days')
+
+    def validate_selected_dates(self, field):
+        """Validates that dates are formatted correctly and aren't in the past"""
+        if not field.data or field.data.strip() == '':
+            raise ValidationError("Please select at least one date")
+
+        date_strings = field.data.split(',')
+        today = date.today()
+        valid_dates = []
+
+        for date_str in date_strings:
+            date_str = date_str.strip()
+            if not date_str:
+                continue
+
+            try:
+                # Try to parse each date
+                selected_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+                # Check if date is in the past
+                if selected_date < today:
+                    raise ValidationError(f"Selected date {selected_date} is in the past")
+
+                valid_dates.append(date_str)
+            except ValueError:
+                # This will catch incorrectly formatted dates
+                raise ValidationError(f"Invalid date format: {date_str}")
+
+        if not valid_dates:
+            raise ValidationError("Please select at least one valid date")
 
 class ExportForm(FlaskForm):
     # ... (definition as before) ...

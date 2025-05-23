@@ -1,0 +1,94 @@
+{% extends "layout.html" %}
+
+{% block title %}Auto-Schedule Multiple Days - Summer Scheduler{% endblock %}
+
+{% block content %}
+<h2>Auto-Schedule for Multiple Days</h2>
+<p>Select a kid and specific dates to schedule. The system will attempt to auto-schedule activities for each selected day, respecting existing manually scheduled items and aiming to fill ~{{ (TARGET_DAILY_MINUTES / 60)|round(1) }} hours per day.</p>
+
+<form method="POST" action="{{ url_for('schedule.trigger_range_schedule') }}" id="schedule-form" novalidate>
+    {{ form.csrf_token }}
+    <div class="form-group mb-3">
+        {{ form.kid_id.label(class="form-label") }}
+        {{ form.kid_id(class="form-select") }}
+        {% if form.kid_id.errors %}
+        <div class="text-danger">{% for error in form.kid_id.errors %}<span>{{ error }}</span>{% endfor %}</div>
+        {% endif %}
+    </div>
+
+    <div class="form-group mb-3">
+        <label for="flatpickr-dates" class="form-label">Select Dates (Click to choose multiple):</label>
+        <input type="text" id="flatpickr-dates" class="form-control bg-white{% if form.selected_dates.errors %} is-invalid{% endif %}"
+               placeholder="Click to select dates..." readonly="readonly">
+
+        {{ form.selected_dates(id="selected_dates_hidden_input", style="display:none;") }}
+
+        {% if form.selected_dates.errors %}
+        <div class="invalid-feedback d-block">{% for error in form.selected_dates.errors %}<span>{{ error }}</span>{% endfor %}</div>
+        {% endif %}
+    </div>
+
+    <div class="form-group mt-3">
+        {{ form.submit_range_schedule(class="btn btn-primary") }}
+    </div>
+</form>
+
+{% if results %}
+<h3 class="mt-4">Scheduling Results:</h3>
+<ul>
+    {% for result in results %}
+    <li>{{ result }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateInputDisplay = document.getElementById('flatpickr-dates');
+        const dateInputHidden = document.getElementById('selected_dates_hidden_input');
+        const form = document.getElementById('schedule-form');
+
+        if (dateInputDisplay && dateInputHidden) {
+            // Initialize flatpickr
+            const fp = flatpickr(dateInputDisplay, {
+                mode: "multiple",
+                dateFormat: "Y-m-d",
+                altInput: true,
+                altFormat: "F j, Y",
+                minDate: "today",
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length > 0) {
+                        const formattedDates = selectedDates.map(date => {
+                            return date.getFullYear() + '-' +
+                                (date.getMonth() + 1).toString().padStart(2, '0') + '-' +
+                                date.getDate().toString().padStart(2, '0');
+                        });
+                        dateInputHidden.value = formattedDates.join(',');
+                    } else {
+                        dateInputHidden.value = '';
+                    }
+                }
+            });
+
+            // Check for pre-existing values in the hidden field
+            if (dateInputHidden.value && dateInputHidden.value.trim() !== '') {
+                const dateArray = dateInputHidden.value.split(',').map(d => d.trim()).filter(d => d !== '');
+
+                if (dateArray.length > 0) {
+                    fp.setDate(dateArray);
+                }
+            }
+
+            // Add client-side validation
+            form.addEventListener('submit', function(e) {
+                if (!dateInputHidden.value || dateInputHidden.value.trim() === '') {
+                    e.preventDefault();
+                    alert('Please select at least one date before submitting.');
+                    return false;
+                }
+                return true;
+            });
+        }
+    });
+</script>
+{% endblock %}

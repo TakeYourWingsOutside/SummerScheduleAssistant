@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from app import db
 from app.models import Kid, Activity, ScheduledEvent
 from app.forms import (
-    SelectDateKidForm, ScheduleActivityForm, ScheduleRangeForm,
+    SelectDateKidForm, ScheduleActivityForm, AutoScheduleMultiDatesForm,
     EditScheduledEventDetailsForm, ScheduleCampSessionForm,
     BatchScheduleMultiDateForm, ExportForm, EditCampSessionForm # Ensure all form imports are correct
 )
@@ -259,6 +259,7 @@ def delete_scheduled_event(event_id):
         print(f"ERROR (delete_scheduled_event API): {str(e)}") # Log to server
         return jsonify({"success": False, "message": f"Error removing event: {str(e)}"}), 500
 
+
 @bp.route('/event/<int:event_id>/edit_details', methods=['GET', 'POST'])
 def edit_scheduled_event_details(event_id):
     event = ScheduledEvent.query.get_or_404(event_id); form = EditScheduledEventDetailsForm(obj=event)
@@ -298,6 +299,7 @@ def edit_scheduled_event_details(event_id):
         for f, errs in form.errors.items(): [flash(f"Error in {getattr(form,f).label.text if hasattr(getattr(form,f),'label') else f}: {e}", "danger") for e in errs]
     return render_template('schedule/edit_event_details.html', form=form, event=event)
 
+
 @bp.route('/confirm_event/<int:event_id>/<decision>', methods=['POST'])
 def confirm_event(event_id, decision):
     event = ScheduledEvent.query.get_or_404(event_id); r_kid_id=event.kid_id; r_date_str=event.date.strftime('%Y-%m-%d')
@@ -319,6 +321,7 @@ def confirm_event(event_id, decision):
     except Exception as e: db.session.rollback(); flash(f"Error: {str(e)}", "error")
     return redirect(url_for('schedule.view_day_schedule', date=r_date_str, kid_id=r_kid_id))
 
+
 @bp.route('/auto_schedule/<int:kid_id>/<schedule_date_str>', methods=['POST'])
 def trigger_auto_schedule_day(kid_id, schedule_date_str):
     kid=Kid.query.get_or_404(kid_id);
@@ -327,28 +330,57 @@ def trigger_auto_schedule_day(kid_id, schedule_date_str):
     succ, msg = auto_schedule_day(kid.id, s_date); flash(msg, 'success' if succ else 'error')
     return redirect(url_for('schedule.view_day_schedule', date=schedule_date_str, kid_id=kid_id))
 
-@bp.route('/range', methods=['GET', 'POST'])
-def trigger_range_schedule(): # For auto-scheduling regular activities
-    form = ScheduleRangeForm()
-    if form.validate_on_submit() and form.submit_range_schedule.data:
-        kid_id=form.kid_id.data; s_date=form.start_date.data; e_date=form.end_date.data
-        if kid_id == 0: flash("Select a kid.", "error")
+
+@bp.route('/auto_schedule', methods=['GET', 'POST'])
+def trigger_range_schedule():
+    """Handler for auto-scheduling multiple dates"""
+    form = AutoScheduleMultiDatesForm()
+
+    # Populate the kid dropdown
+    form.kid_id.choices = [(kid.id, kid.name) for kid in Kid.query.order_by(Kid.name).all()]
+
+    results = []
+
+    if form.validate_on_submit():
+        kid_id = form.kid_id.data
+        selected_dates_str = form.selected_dates.data
+
+        # Get the kid
+        kid = Kid.query.get_or_404(kid_id)
+
+        # Process each selected date
+        selected_dates = [date.strip() for date in selected_dates_str.split(',') if date.strip()]
+
+        for date_str in selected_dates:
+            try:
+                # Convert string to date object
+                schedule_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+
+                # Call your auto-scheduling function
+                result = auto_schedule_day(kid_id, schedule_date)  # Use the correct parameter name
+
+                # Add result to results list
+                if result:
+                    results.append(f"Successfully scheduled {schedule_date.strftime('%A, %b %d')}: {result}")
+                else:
+                    results.append(f"No changes needed for {schedule_date.strftime('%A, %b %d')}")
+
+            except Exception as e:
+                results.append(f"Error scheduling {date_str}: {str(e)}")
+
+        # If we successfully processed dates, redirect to view the first date's schedule
+        if selected_dates:
+            first_date = datetime.strptime(selected_dates[0], "%Y-%m-%d").date()
+            flash(f"Auto-scheduled {len(selected_dates)} days for {kid.name}. See the daily schedules for details.", "success")
+            return redirect(url_for('schedule.view_day_schedule', date=first_date.strftime('%Y-%m-%d')))
         else:
-            kid = Kid.query.get(kid_id); c_date = s_date; successes, errors = [], []; days_p = 0
-            max_d = min((e_date - s_date).days + 1, 31 if (e_date - s_date).days + 1 > 0 else 1)
-            while c_date <= e_date and days_p < max_d:
-                days_p += 1; succ, msg = auto_schedule_day(kid.id, c_date)
-                if succ and ("Auto-scheduled" in msg or "activities added" in msg): successes.append(f"{c_date.strftime('%Y-%m-%d')}: {msg}")
-                elif not succ or "No suitable" in msg or "already sufficiently" in msg : errors.append(f"{c_date.strftime('%Y-%m-%d')}: {msg}") # Capture all non-explicit successes as errors/warnings
-                c_date += timedelta(days=1)
-            if successes: flash("Range scheduling - successful days:", 'info'); [flash(msg, 'success') for msg in successes]
-            if errors: flash("Range scheduling - days with issues/no new events:", 'info'); [flash(msg, 'warning' if "already" in msg or "No suitable" in msg else 'error') for msg in errors]
-            if not successes and not errors and days_p > 0: flash("No new activities were auto-scheduled for the selected range.", 'info')
-            elif days_p == 0 : flash("No days processed in range.", "warning")
-            return redirect(url_for('schedule.trigger_range_schedule'))
-    elif request.method == 'POST' and form.errors:
-        for f, errs in form.errors.items(): [flash(f"Error in {getattr(form,f).label.text if hasattr(getattr(form,f),'label') else f}: {e}", "danger") for e in errs]
-    return render_template('schedule/schedule_range.html', form=form, TARGET_DAILY_MINUTES=TARGET_DAILY_MINUTES)
+            flash("No valid dates were selected for scheduling.", "warning")
+
+    return render_template('schedule/auto_schedule_multi_days.html',
+                           form=form,
+                           results=results,
+                           TARGET_DAILY_MINUTES=TARGET_DAILY_MINUTES)
 
 # --- Route for FullCalendar Page (this is user-facing, not API) ---
 @bp.route('/week')

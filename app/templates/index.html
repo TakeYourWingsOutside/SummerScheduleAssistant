@@ -68,7 +68,7 @@
     <h4 class="alert-heading">It's a Free Day!</h4>
     <p>No activities scheduled for today. Enjoy the unscheduled time!</p>
     <hr>
-    <p class="mb-0">You can always <a href="{{ url_for('schedule.view_day_schedule', date=todays_date.strftime('%Y-%m-%d')) }}" class="alert-link">add some activities for today</a> or <a href="{{ url_for('schedule.trigger_range_schedule') }}" class="alert-link">auto-schedule the week</a>.</p>
+    <p class="mb-0">You can always <a href="{{ url_for('schedule.view_day_schedule', date=todays_date.strftime('%Y-%m-%d')) }}" class="alert-link">add some activities for today</a> or <a href="{{ url_for('schedule.trigger_multi_days_schedule') }}" class="alert-link">auto-schedule the week</a>.</p>
 </div>
 {% endif %}
 
