@@ -1,0 +1,117 @@
+{% extends "layout.html" %}
+
+{% block title %}Edit Event Details - Summer Scheduler{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Edit Details for: <span class="fw-normal">{{ event.activity_details.name }}</span></h2>
+    <a href="{{ url_for('schedule.view_day_schedule', date=event.date.strftime('%Y-%m-%d'), kid_id=event.kid_id) }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left-circle"></i> Back to Daily Schedule
+    </a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Event Information</h5>
+    </div>
+    <div class="card-body">
+        <p class="card-text">
+            <strong>Kid:</strong> {{ event.kid.name }}<br>
+            <strong>Date:</strong> {{ event.date.strftime('%A, %B %d, %Y') }}<br>
+            <strong>Time:</strong> {{ event.start_time.strftime('%I:%M %p') }} - {{ event.end_time.strftime('%I:%M %p') }}
+            {% if event.is_camp %}
+            <span class="badge bg-success ms-2">Camp Event</span>
+            {% if event.is_overnight_camp %}<span class="badge bg-info text-dark ms-1">Overnight</span>{% endif %}
+            {% endif %}
+        </p>
+
+        {% if event.activity_details.requires_supervision and not event.supervisor_assigned %}
+        <div class="alert alert-warning py-2 px-3 small" role="alert">
+            <i class="bi bi-eye-fill"></i> This activity type typically requires supervision.
+        </div>
+        {% endif %}
+        {% if event.activity_details.requires_transportation and not event.transport_provider %}
+        <div class="alert alert-info py-2 px-3 small" role="alert">
+            <i class="bi bi-car-front-fill"></i> This activity type typically requires transportation around {{ event.start_time.strftime('%I:%M %p') }} & {{ event.end_time.strftime('%I:%M %p') }}.
+        </div>
+        {% endif %}
+
+        <hr class="my-3">
+
+        <form method="POST" action="">
+            {{ form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-6 mb-3">
+                    {{ form.supervisor_assigned.label(class="form-label") }}
+                    {{ form.supervisor_assigned(class="form-control" + (" is-invalid" if form.supervisor_assigned.errors else ""), placeholder="e.g., Mom, Dad, Self") }}
+                    {% if form.supervisor_assigned.errors %}
+                    <div class="invalid-feedback">{% for error in form.supervisor_assigned.errors %}<span>{{ error }}</span>{% endfor %}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {{ form.transport_provider.label(class="form-label") }}
+                    {{ form.transport_provider(class="form-control" + (" is-invalid" if form.transport_provider.errors else ""), placeholder="e.g., Dad's Car, Walking") }}
+                    {% if form.transport_provider.errors %}
+                    <div class="invalid-feedback">{% for error in form.transport_provider.errors %}<span>{{ error }}</span>{% endfor %}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mb-3">
+                {{ form.status.label(class="form-label") }}
+                {{ form.status(class="form-select" + (" is-invalid" if form.status.errors else "")) }}
+                {% if form.status.errors %}
+                <div class="invalid-feedback">{% for error in form.status.errors %}<span>{{ error }}</span>{% endfor %}</div>
+                {% endif %}
+            </div>
+
+            <div class="mb-3">
+                {{ form.notes.label(class="form-label") }}
+                {{ form.notes(class="form-control" + (" is-invalid" if form.notes.errors else ""), rows="3") }}
+                {% if form.notes.errors %}
+                <div class="invalid-feedback">{% for error in form.notes.errors %}<span>{{ error }}</span>{% endfor %}</div>
+                {% endif %}
+            </div>
+
+            {% if event.is_camp or True %} {# Always show camp section if fields are on form, or if event IS a camp #}
+            <fieldset class="mt-4 pt-3 border-top">
+                <legend class="h6">Camp Information</legend>
+                <div class="form-check mb-2">
+                    {# Use render_kw directly from the form object if set in the route #}
+                    {{ form.is_camp(class="form-check-input", **form.is_camp.render_kw or {}) }}
+                    {{ form.is_camp.label(class="form-check-label") }}
+                    {% if form.is_camp.render_kw and form.is_camp.render_kw.get('disabled') %}
+                    <small class="form-text text-muted d-block">(This flag is managed when creating the camp session.)</small>
+                    {% endif %}
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6 mb-3">
+                        {{ form.cost.label(class="form-label") }}
+                        {{ form.cost(class="form-control" + (" is-invalid" if form.cost.errors else ""), **form.cost.render_kw or {}) }}
+                        {% if form.cost.render_kw and form.cost.render_kw.get('title') %}
+                        <small class="form-text text-muted d-block">{{ form.cost.render_kw.get('title') }}</small>
+                        {% elif event.is_camp %}
+                        <small class="form-text text-muted d-block">(Total cost for the entire camp session)</small>
+                        {% endif %}
+                        {% if form.cost.errors %}
+                        <div class="invalid-feedback">{% for error in form.cost.errors %}<span>{{ error }}</span>{% endfor %}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3 align-self-center"> {# For checkbox vertical alignment #}
+                        <div class="form-check">
+                            {{ form.is_overnight_camp(class="form-check-input") }}
+                            {{ form.is_overnight_camp.label(class="form-check-label") }}
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+            {% endif %}
+
+            <div class="mt-4">
+                {{ form.submit_edit_details(class="btn btn-primary") }}
+                <a href="{{ url_for('schedule.view_day_schedule', date=event.date.strftime('%Y-%m-%d'), kid_id=event.kid_id) }}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

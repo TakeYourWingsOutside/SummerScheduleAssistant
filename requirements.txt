@@ -1,0 +1,10 @@
+Flask==2.3.3
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.5
+Flask-WTF==1.2.1
+python-dotenv==1.0.0
+ics==0.7.2
+gunicorn==20.1.0
+# For Excel export, you can add these later when we implement that feature:
+# pandas==2.0.3
+# openpyxl==3.1.2

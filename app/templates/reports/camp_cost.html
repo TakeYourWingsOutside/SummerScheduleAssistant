@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+
+{% block title %}Camp Cost Report - Summer Scheduler{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Camp Cost Breakdown</h2>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        Select Report Period
+    </div>
+    <div class="card-body">
+        <form method="POST" action="" class="row g-3 align-items-end">
+            {{ form.hidden_tag() }}
+            <div class="col-md-5">
+                {{ form.start_date.label(class="form-label") }}
+                {{ form.start_date(class="form-control" + (" is-invalid" if form.start_date.errors else "")) }}
+                {% if form.start_date.errors %}<div class="invalid-feedback">{% for e in form.start_date.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+            </div>
+            <div class="col-md-5">
+                {{ form.end_date.label(class="form-label") }}
+                {{ form.end_date(class="form-control" + (" is-invalid" if form.end_date.errors else "")) }}
+                {% if form.end_date.errors %}<div class="invalid-feedback">{% for e in form.end_date.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+            </div>
+            <div class="col-md-2">
+                {{ form.submit_report(class="btn btn-primary w-100") }}
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if request.method == 'POST' and form.validate_on_submit() %} {# Only show results after form submission #}
+{% if report_data %}
+<h4 class="mt-4">Report for {{ selected_start_date.strftime('%b %d, %Y') }} - {{ selected_end_date.strftime('%b %d, %Y') }}</h4>
+<div class="table-responsive mt-3">
+    <table class="table table-bordered table-hover table-sm">
+        <thead class="table-light">
+        <tr>
+            <th>Kid Name</th>
+            <th>Camp Name</th>
+            <th>Session Start</th>
+            <th>Session End</th>
+            <th class="text-end">Cost</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for kid_data in report_data %}
+        {% set kid_rowspan = kid_data.camps|length if kid_data.camps else 1 %}
+        {% for camp_detail in kid_data.camps %}
+        <tr>
+            {% if loop.first %}
+            <td rowspan="{{ kid_rowspan }}" style="vertical-align: top; font-weight: bold;">{{ kid_data.kid_name }}</td>
+            {% endif %}
+            <td>{{ camp_detail.camp_name }}</td>
+            <td>{{ camp_detail.session_start_date.strftime('%Y-%m-%d') }}</td>
+            <td>{{ camp_detail.session_end_date.strftime('%Y-%m-%d') if camp_detail.session_end_date else camp_detail.session_start_date.strftime('%Y-%m-%d') }}</td>
+            <td class="text-end">${{ "%.2f"|format(camp_detail.cost) }}</td>
+        </tr>
+        {% else %} {# If kid_data.camps is empty but kid_data itself exists (e.g. had a cost of 0) #}
+        <tr>
+            <td style="font-weight: bold;">{{ kid_data.kid_name }}</td>
+            <td colspan="3" class="text-muted"><em>No camps with cost found in this period.</em></td>
+            <td class="text-end">${{ "%.2f"|format(kid_data.total_cost) }}</td>
+        </tr>
+        {% endfor %}
+        {% if kid_data.camps %} {# Show total only if there were camps listed #}
+        <tr class="table-group-divider">
+            <td colspan="4" class="text-end fw-bold">Total for {{ kid_data.kid_name }}:</td>
+            <td class="text-end fw-bold">${{ "%.2f"|format(kid_data.total_cost) }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+        </tbody>
+        {% if grand_total_cost > 0 %}
+        <tfoot class="table-light">
+        <tr>
+            <td colspan="4" class="text-end fw-bolder">Grand Total:</td>
+            <td class="text-end fw-bolder">${{ "%.2f"|format(grand_total_cost) }}</td>
+        </tr>
+        </tfoot>
+        {% endif %}
+    </table>
+</div>
+{% elif request.method == 'POST' %}
+<div class="alert alert-info mt-4">No camp costs found for the selected period.</div>
+{% endif %}
+{% endif %}
+
+{% endblock %}

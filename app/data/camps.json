@@ -1,0 +1,67 @@
+[
+  {
+    "name": "Tennis Camp",
+    "description": "Focuses on tennis fundamentals, drills, and fun games. Suitable for beginners to intermediate.",
+    "duration_minutes": 360,
+    "requires_supervision": false,
+    "requires_another_person": false,
+    "can_do_alone": true,
+    "requires_transportation": true,
+    "is_camp_activity": true,
+    "default_camp_cost": 184.00,
+    "default_is_overnight": false,
+    "kids_assigned": ["Silas", "Sofia"]
+  },
+  {
+    "name": "Timberlee Camp (Overnight)",
+    "description": "Classic overnight camp experience at Timberlee. Usually a 5-days.",
+    "duration_minutes": 1440,
+    "requires_supervision": false,
+    "requires_another_person": false,
+    "can_do_alone": true,
+    "requires_transportation": true,
+    "is_camp_activity": true,
+    "default_camp_cost": 825.00,
+    "default_is_overnight": true,
+    "kids_assigned": ["Reece", "Silas"]
+  },
+  {
+    "name": "Minecraft Modding & Coding Camp",
+    "description": "Learn to code by creating custom mods and adventures in Minecraft.",
+    "duration_minutes": 180,
+    "requires_supervision": false,
+    "requires_another_person": false,
+    "can_do_alone": true,
+    "requires_transportation": true,
+    "is_camp_activity": true,
+    "default_camp_cost": 299.00,
+    "default_is_overnight": false,
+    "kids_assigned": ["Sofia"]
+  },
+  {
+    "name": "Soccer Camp",
+    "description": "Intensive soccer training focusing on advanced techniques, tactical play, and conditioning.",
+    "duration_minutes": 360,
+    "requires_supervision": true,
+    "requires_another_person": true,
+    "can_do_alone": false,
+    "requires_transportation": true,
+    "is_camp_activity": true,
+    "default_camp_cost": 300.00,
+    "default_is_overnight": false,
+    "kids_assigned": ["Silas", "Sofia"]
+  },
+  {
+    "name": "Golf Camp",
+    "description": "1/2 day golf camp",
+    "duration_minutes": 180,
+    "requires_supervision": false,
+    "requires_another_person": false,
+    "can_do_alone": true,
+    "requires_transportation": true,
+    "is_camp_activity": true,
+    "default_camp_cost": 450.00,
+    "default_is_overnight": false,
+    "kids_assigned": ["Sofia"]
+  }
+]

@@ -1,0 +1,112 @@
+{% extends "layout.html" %}
+
+{% block title %}Batch Schedule Activity on Multiple Dates{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Batch Schedule Activity (Multiple Dates)</h2>
+    <a href="{{ url_for('schedule.view_day_schedule') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left-circle"></i> Back to Daily Schedule
+    </a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <p class="card-text text-muted">Select an activity, a kid, a common start time, and then choose multiple dates using the date picker. The activity will be scheduled for the selected kid at the specified time on each chosen date.</p>
+        <hr>
+        {# Use the new form: BatchScheduleMultiDateForm #}
+        <form method="POST" action="{{ url_for('schedule.batch_schedule_activity_multi_date') }}" novalidate> {# New route #}
+            {{ form.hidden_tag() }}
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    {{ form.activity_id.label(class="form-label") }}
+                    {{ form.activity_id(class="form-select" + (" is-invalid" if form.activity_id.errors else "")) }}
+                    {% if form.activity_id.errors %}<div class="invalid-feedback">{% for e in form.activity_id.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="col-md-6">
+                    {{ form.kid_id.label(class="form-label") }}
+                    {{ form.kid_id(class="form-select" + (" is-invalid" if form.kid_id.errors else "")) }}
+                    {% if form.kid_id.errors %}<div class="invalid-feedback">{% for e in form.kid_id.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-8">
+                    <label for="flatpickr-dates" class="form-label">Select Dates (Click to choose multiple):</label>
+                    {# This input will be targeted by Flatpickr #}
+                    <input type="text" id="flatpickr-dates" class="form-control bg-white"
+                           placeholder="Click to select dates..." readonly="readonly">
+                    {# This hidden field will store the comma-separated dates for WTForms #}
+                    {{ form.selected_dates(class="form-control" + ("is-invalid" if form.selected_dates.errors else ""), id="selected_dates_hidden_input", style="display:none;") }}
+                    {% if form.selected_dates.errors %}<div class="invalid-feedback d-block">{% for e in form.selected_dates.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="col-md-4">
+                    {{ form.start_time.label(class="form-label") }}
+                    {{ form.start_time(class="form-control" + (" is-invalid" if form.start_time.errors else "")) }}
+                    {% if form.start_time.errors %}<div class="invalid-feedback">{% for e in form.start_time.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+            </div>
+
+            <h5 class="mt-4">Common Details (Optional):</h5>
+            {# ... supervisor, transport, notes fields from BatchScheduleMultiDateForm ... #}
+            <div class="row g-3">
+                <div class="col-md-6 mb-3">
+                    {{ form.supervisor_assigned.label(class="form-label") }}
+                    {{ form.supervisor_assigned(class="form-control") }}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {{ form.transport_provider.label(class="form-label") }}
+                    {{ form.transport_provider(class="form-control") }}
+                </div>
+            </div>
+            <div class="mb-3">
+                {{ form.notes.label(class="form-label") }}
+                {{ form.notes(class="form-control", rows="2") }}
+            </div>
+
+
+            <div class="mt-4">
+                {{ form.submit(class="btn btn-success") }}
+                <a href="{{ url_for('schedule.view_day_schedule') }}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateInputDisplay = document.getElementById('flatpickr-dates');
+        const dateInputHidden = document.getElementById('selected_dates_hidden_input');
+
+        if (dateInputDisplay && dateInputHidden) {
+            flatpickr(dateInputDisplay, {
+                mode: "multiple",
+                dateFormat: "Y-m-d", // Format Flatpickr uses internally and for display
+                altInput: true, // Shows a user-friendly version in the visible input
+                altFormat: "F j, Y", // How it appears to the user (e.g., "June 10, 2024")
+                // When dates change, update the hidden input for form submission
+                onChange: function(selectedDates, dateStr, instance) {
+                    // dateStr will be a comma-separated string of dates in "Y-m-d" format
+                    // if more than one date is selected.
+                    // If only one date, it's just that date.
+                    // Flatpickr's `selectedDates` is an array of JS Date objects.
+                    // We need to format them and join for the hidden input.
+                    const formattedDates = selectedDates.map(date =>
+                        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+                    );
+                    dateInputHidden.value = formattedDates.join(',');
+                    // Also update the visible input if not using altInput or want specific format
+                    // dateInputDisplay.value = formattedDates.join(', '); // Optional: update visible display
+                },
+                // To pre-fill if editing or form re-render with errors:
+                onReady: function(selectedDates, dateStr, instance) {
+                    if (dateInputHidden.value) {
+                        const preselectedDates = dateInputHidden.value.split(',');
+                        instance.setDate(preselectedDates.filter(d => d.trim() !== '')); // Set valid dates
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

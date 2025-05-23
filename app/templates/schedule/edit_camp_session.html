@@ -1,0 +1,62 @@
+{% extends "layout.html" %}
+
+{% block title %}Edit Camp Session: {{ activity_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Edit Camp Session: <span class="fw-normal">{{ activity_name }}</span></h2>
+    <a href="{{ url_for('schedule.view_day_schedule', date=original_start_date.strftime('%Y-%m-%d'), kid_id=kid.id) }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left-circle"></i> Back to Daily Schedule ({{ original_start_date.strftime('%b %d') }})
+    </a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Update Session Details for {{ kid.name }}</h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">
+            Modifying the start or end dates will add or remove daily entries for this camp session.
+            The cost and overnight status will apply to the entire updated session.
+        </p>
+        <hr>
+        <form method="POST" action="" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-6 mb-3">
+                    {{ form.session_start_date.label(class="form-label") }}
+                    {{ form.session_start_date(class="form-control" + (" is-invalid" if form.session_start_date.errors else "")) }}
+                    {% if form.session_start_date.errors %}<div class="invalid-feedback">{% for e in form.session_start_date.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {{ form.session_end_date.label(class="form-label") }}
+                    {{ form.session_end_date(class="form-control" + (" is-invalid" if form.session_end_date.errors else "")) }}
+                    {% if form.session_end_date.errors %}<div class="invalid-feedback">{% for e in form.session_end_date.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6 mb-3">
+                    {{ form.session_cost.label(class="form-label") }}
+                    {{ form.session_cost(class="form-control" + (" is-invalid" if form.session_cost.errors else "")) }}
+                    {% if form.session_cost.errors %}<div class="invalid-feedback">{% for e in form.session_cost.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3 d-flex align-items-center">
+                    <div class="form-check mt-3">
+                        {{ form.session_is_overnight(class="form-check-input") }}
+                        {{ form.session_is_overnight.label(class="form-check-label") }}
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                {{ form.session_notes.label(class="form-label") }}
+                {{ form.session_notes(class="form-control" + (" is-invalid" if form.session_notes.errors else ""), rows="3") }}
+                {% if form.session_notes.errors %}<div class="invalid-feedback">{% for e in form.session_notes.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+            </div>
+            <div class="mt-4">
+                {{ form.submit_update_session(class="btn btn-primary") }}
+                <a href="{{ url_for('schedule.view_day_schedule', date=original_start_date.strftime('%Y-%m-%d'), kid_id=kid.id) }}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

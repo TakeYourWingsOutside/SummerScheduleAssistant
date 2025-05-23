@@ -1,0 +1,182 @@
+{% extends "layout.html" %}
+{% block title %}Manage Definitions - Summer Scheduler{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4"> {# Increased bottom margin #}
+    <h1>Manage Activity & Camp Definitions</h1>
+    <a href="{{ url_for('activities.add_activity') }}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Add New Definition</a>
+</div>
+
+{# Initialize lists #}
+{% set camp_definitions_list = [] %}
+{% set regular_activities_list = [] %}
+{% if activities %}
+{% for act_iter in activities %}
+{% if act_iter.is_camp_activity == True %}
+{% set __ = camp_definitions_list.append(act_iter) %}
+{% else %}
+{% set __ = regular_activities_list.append(act_iter) %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+<div class="row g-lg-4 g-md-3 g-2"> {# Responsive gutters #}
+    {# --- CAMP DEFINITIONS COLUMN --- #}
+    <div class="col-lg-6 mb-3"> {# Add mb-3 for spacing when stacked #}
+        <div class="card shadow-sm">
+            <div class="card-header bg-light py-2"> {# py-2 for less padding #}
+                <a class="btn btn-link text-decoration-none text-dark fw-bold p-0 d-flex justify-content-between align-items-center w-100"
+                   data-bs-toggle="collapse" href="#collapseCampDefinitions" role="button"
+                   aria-expanded="false" aria-controls="collapseCampDefinitions">
+                    <span><i class="bi bi-stars me-2"></i>Camp Definitions ({{ camp_definitions_list|length }})</span>
+                    <i class="bi bi-chevron-down collapse-icon"></i> {# Icon to indicate collapsibility #}
+                </a>
+            </div>
+            <div class="collapse" id="collapseCampDefinitions"> {# REMOVED 'show' class #}
+                <div class="card-body p-0"> {# Remove padding if table has its own #}
+                    {% if camp_definitions_list %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm mb-0"> {# mb-0 if last element in card-body #}
+                            {# ... table head ... #}
+                            <thead class="table-light">
+                            <tr>
+                                <th>Camp Name</th><th>Cost</th><th>Overnight?</th><th>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for activity in camp_definitions_list %}
+                            <tr>
+                                <td>{{ activity.name }} <span class="badge bg-success">Camp</span><br>
+                                    <small class="text-muted">{{ activity.description|default('', True)|truncate(60, True) }}</small>
+                                </td>
+                                <td>${{ "%.2f"|format(activity.default_camp_cost) if activity.default_camp_cost is not none else '--' }}</td>
+                                <td>{{ 'Yes' if activity.default_is_overnight else 'No' }}</td>
+                                <td class="actions">
+                                    <a href="{{ url_for('schedule.schedule_camp_session_form', activity_id=activity.id) }}" class="btn btn-sm btn-info mb-1 d-block" title="Schedule Camp Session"><i class="bi bi-calendar-plus"></i> Schedule</a>
+                                    <a href="{{ url_for('activities.edit_activity', activity_id=activity.id) }}" class="btn btn-sm btn-warning mb-1 d-block" title="Edit Definition"><i class="bi bi-pencil-square"></i> Edit</a>
+                                    <form action="{{ url_for('activities.delete_activity', activity_id=activity.id) }}" method="POST" class="d-block" onsubmit="return confirm('Delete definition?');">
+                                        <button type="submit" class="btn btn-sm btn-danger w-100" title="Delete Definition"><i class="bi bi-trash"></i> Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center p-3 text-muted small">No camp definitions found.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- REGULAR ACTIVITIES COLUMN --- #}
+    <div class="col-lg-6 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light py-2">
+                <a class="btn btn-link text-decoration-none text-dark fw-bold p-0 d-flex justify-content-between align-items-center w-100"
+                   data-bs-toggle="collapse" href="#collapseRegularActivities" role="button"
+                   aria-expanded="false" aria-controls="collapseRegularActivities">
+                    <span><i class="bi bi-card-list me-2"></i>Regular Activities ({{ regular_activities_list|length }})</span>
+                    <i class="bi bi-chevron-down collapse-icon"></i>
+                </a>
+            </div>
+            <div class="collapse" id="collapseRegularActivities"> {# REMOVED 'show' class #}
+                <div class="card-body p-0">
+                    {% if regular_activities_list %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm mb-0">
+                            {# ... table head ... #}
+                            <thead class="table-light">
+                            <tr>
+                                <th>Name</th><th>Duration</th><th>Props</th><th>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for activity in regular_activities_list %}
+                            <tr>
+                                <td>{{ activity.name }}<br>
+                                    <small class="text-muted">{{ activity.description|default('', True)|truncate(60, True) }}</small>
+                                </td>
+                                <td>{{ activity.duration_minutes }} min</td>
+                                <td>
+                                    {# ... property badges ... #}
+                                </td>
+                                <td class="actions">
+                                    {# NEW BUTTON for scheduling this specific regular activity #}
+                                    <a href="{{ url_for('schedule.schedule_single_activity_form', activity_id=activity.id) }}" class="btn btn-sm btn-success mb-1 d-block" title="Schedule This Activity">
+                                        <i class="bi bi-calendar-plus"></i> Schedule Activity
+                                    </a>
+                                    <a href="{{ url_for('activities.edit_activity', activity_id=activity.id) }}" class="btn btn-sm btn-warning mb-1 d-block" title="Edit Activity"><i class="bi bi-pencil-square"></i> Edit</a>
+                                    <form action="{{ url_for('activities.delete_activity', activity_id=activity.id) }}" method="POST" class="d-block" onsubmit="return confirm('Delete definition?');">
+                                        <button type="submit" class="btn btn-sm btn-danger w-100" title="Delete Activity"><i class="bi bi-trash"></i> Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center p-3 text-muted small">No regular activities defined yet.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div> {# End row #}
+
+{# ... Overall messages and Danger Zone (collapsible) ... #}
+{# The Danger Zone collapsible section can remain as it was in the previous step #}
+{% if not activities %}
+<div class="alert alert-info mt-3" role="alert">No definitions. <a href="{{ url_for('activities.add_activity') }}" class="alert-link">Add one?</a></div>
+{% elif not camp_definitions_list and not regular_activities_list %}
+<div class="alert alert-warning mt-3" role="alert">No definitions to display based on current criteria.</div>
+{% endif %} {# Removed redundant messages if sections are empty, they have their own now #}
+
+<hr class="my-5">
+<div class="mb-3">
+    <a class="btn btn-outline-danger d-flex justify-content-between align-items-center"
+       data-bs-toggle="collapse" href="#collapseDangerZoneDefinitions" role="button"
+       aria-expanded="false" aria-controls="collapseDangerZoneDefinitions">
+        <span><i class="bi bi-exclamation-triangle-fill me-2"></i> Danger Zone (Definition Actions)</span>
+        <i class="bi bi-chevron-down collapse-icon"></i>
+    </a>
+    <div class="collapse mt-2" id="collapseDangerZoneDefinitions">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">Advanced Actions</div>
+            <div class="card-body text-danger">
+                <h5 class="card-title">Clear All Activity & Camp Definitions</h5>
+                <p class="card-text">
+                    This action will permanently delete <strong>all</strong> activity and camp definitions. This cannot be undone. <br>
+                    <strong>Important:</strong> This will only succeed if no definitions are currently used in scheduled events.
+                </p>
+                <form method="POST" action="{{ url_for('activities.clear_all_activity_definitions') }}"
+                      onsubmit="return confirm('ARE YOU ABSOLUTELY SURE you want to delete ALL activity and camp definitions?');">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash3-fill"></i> Yes, Clear All Definitions
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Add some CSS for the collapse icon rotation #}
+<style>
+    .collapse-icon {
+        transition: transform 0.2s ease-in-out;
+    }
+    [aria-expanded="true"] .collapse-icon {
+        transform: rotate(180deg);
+    }
+    .actions form { /* Ensure forms in actions stack if needed */
+        width: 100%;
+    }
+    .actions .btn {
+        width: 100%; /* Make buttons full width of their cell part */
+    }
+</style>
+
+{% endblock %}

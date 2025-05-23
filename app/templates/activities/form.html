@@ -1,0 +1,164 @@
+{% extends "layout.html" %}
+{% block title %}
+{{ 'Edit' if form.name.data and activity_id else 'Add New' }} Activity/Camp Definition
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>{{ 'Edit' if form.name.data and activity_id else 'Add New' }} Activity/Camp Definition</h2>
+    <a href="{{ url_for('activities.list_activities') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left-circle"></i> Back to Definitions List
+    </a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="POST" action="" novalidate>
+            {{ form.hidden_tag() }}
+
+            <div class="row g-3">
+                <div class="col-md-6 mb-3">
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), placeholder="e.g., Soccer Practice or Summer Art Camp") }}
+                    {% if form.name.errors %}<div class="invalid-feedback">{% for e in form.name.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+
+                {# --- DURATION INPUT WIDGET --- #}
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Default Duration per instance/day</label>
+                    <div class="input-group">
+                        <input type="number" id="duration_hours_display" class="form-control" value="0" min="0" max="23" aria-label="Hours">
+                        <span class="input-group-text">hr</span>
+                        <input type="number" id="duration_minutes_display" class="form-control" value="30" min="0" max="59" step="5" aria-label="Minutes">
+                        <span class="input-group-text">min</span>
+                    </div>
+                    {# This is the actual field WTForms will use; we can hide it or leave it visible for debugging #}
+                    {# If hidden, ensure its value is updated by JS. For robust validation, keep it and sync. #}
+                    {{ form.duration_minutes(class="form-control mt-1" + (" is-invalid" if form.duration_minutes.errors else ""), id="duration_minutes_actual", style="display: none;") }}
+                    {# Or visible for debug: {{ form.duration_minutes(class="form-control mt-1" + (" is-invalid" if form.duration_minutes.errors else ""), id="duration_minutes_actual") }} #}
+                    {% if form.duration_minutes.errors %}<div class="invalid-feedback d-block">{% for e in form.duration_minutes.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                    <small class="form-text text-muted">Total duration will be calculated in minutes.</small>
+                </div>
+                {# --- END DURATION INPUT WIDGET --- #}
+            </div>
+
+            <div class="mb-3">
+                {{ form.description.label(class="form-label") }}
+                {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else ""), rows="3", placeholder="Details about the activity or camp type...") }}
+                {% if form.description.errors %}<div class="invalid-feedback">{% for e in form.description.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+            </div>
+
+            <h5 class="mt-4">General Properties:</h5>
+            <div class="row g-2 mb-3">
+                {# ... your checkboxes for requires_supervision, etc. ... #}
+                <div class="col-md-auto"><div class="form-check">{{ form.requires_supervision(class="form-check-input") }} {{ form.requires_supervision.label(class="form-check-label") }}</div></div>
+                <div class="col-md-auto"><div class="form-check">{{ form.requires_another_person(class="form-check-input") }} {{ form.requires_another_person.label(class="form-check-label") }}</div></div>
+                <div class="col-md-auto"><div class="form-check">{{ form.can_do_alone(class="form-check-input") }} {{ form.can_do_alone.label(class="form-check-label") }}</div></div>
+                <div class="col-md-auto"><div class="form-check">{{ form.requires_transportation(class="form-check-input") }} {{ form.requires_transportation.label(class="form-check-label") }}</div></div>
+            </div>
+
+            <hr class="my-4">
+
+            <div class="form-check mb-3">
+                {{ form.is_camp_activity(class="form-check-input", onchange="toggleActivityCampFields(this.checked)") }}
+                {{ form.is_camp_activity.label(class="form-check-label fw-bold") }}
+            </div>
+
+            <div id="activity_camp_definition_fields" style="display: {{ 'block' if form.is_camp_activity.data else 'none' }}; border: 1px solid #dee2e6; padding: 20px; margin-top: 15px; margin-bottom:20px; border-radius: .375rem; background-color: #f8f9fa;">
+                {# ... camp definition fields (default_camp_cost, default_is_overnight) ... #}
+                <h5 class="mb-3 text-primary">Camp Definition Specifics:</h5>
+                <div class="row g-3">
+                    <div class="col-md-6 mb-3">
+                        {{ form.default_camp_cost.label(class="form-label") }}
+                        {{ form.default_camp_cost(class="form-control" + (" is-invalid" if form.default_camp_cost.errors else ""), placeholder="e.g., 300.00") }}
+                        {% if form.default_camp_cost.errors %}<div class="invalid-feedback">{% for e in form.default_camp_cost.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3 d-flex align-items-center">
+                        <div class="form-check mt-3">
+                            {{ form.default_is_overnight(class="form-check-input") }}
+                            {{ form.default_is_overnight.label(class="form-check-label") }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-4">
+            <div class="mb-3">
+                {# ... kids_assigned field ... #}
+                {{ form.kids_assigned.label(class="form-label") }}
+                <div>
+                    {% for subfield in form.kids_assigned %}
+                    <div class="form-check form-check-inline">
+                        {{ subfield(class="form-check-input" + (" is-invalid" if form.kids_assigned.errors else "")) }}
+                        {{ subfield.label(class="form-check-label") }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if form.kids_assigned.errors %}<div class="invalid-feedback d-block">{% for e in form.kids_assigned.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+            </div>
+
+            <div class="mt-4">
+                {{ form.submit(class="btn btn-primary") }}
+                <a href="{{ url_for('activities.list_activities') }}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# --- JAVASCRIPT FOR DURATION AND CAMP FIELDS --- #}
+<script>
+    // For toggling camp definition fields
+    function toggleActivityCampFields(isCampChecked) {
+        const campFieldsDiv = document.getElementById('activity_camp_definition_fields');
+        if (campFieldsDiv) {
+            campFieldsDiv.style.display = isCampChecked ? 'block' : 'none';
+        }
+    }
+
+    // For duration hours/minutes widget
+    document.addEventListener('DOMContentLoaded', function() {
+        var isCampActivityCheckbox = document.querySelector('input[name="is_camp_activity"]');
+        if (isCampActivityCheckbox) {
+            toggleActivityCampFields(isCampActivityCheckbox.checked);
+        }
+
+        const hoursDisplay = document.getElementById('duration_hours_display');
+        const minutesDisplay = document.getElementById('duration_minutes_display');
+        const actualMinutesInput = document.getElementById('duration_minutes_actual'); // The WTForms field
+
+        function updateActualMinutes() {
+            const hours = parseInt(hoursDisplay.value) || 0;
+            const minutes = parseInt(minutesDisplay.value) || 0;
+            if (actualMinutesInput) {
+                actualMinutesInput.value = (hours * 60) + minutes;
+            }
+        }
+
+        function populateDisplayFromActual() {
+            if (actualMinutesInput && actualMinutesInput.value) {
+                const totalMinutes = parseInt(actualMinutesInput.value);
+                if (!isNaN(totalMinutes) && totalMinutes >= 0) {
+                    hoursDisplay.value = Math.floor(totalMinutes / 60);
+                    minutesDisplay.value = totalMinutes % 60;
+                } else { // If invalid or empty, set display to defaults
+                    hoursDisplay.value = 0;
+                    minutesDisplay.value = 30; // Or your preferred default
+                }
+            } else { // If actualMinutesInput is empty (e.g., new form)
+                hoursDisplay.value = 0;   // Default display hours
+                minutesDisplay.value = 30; // Default display minutes (e.g. 30 min)
+                updateActualMinutes();    // Populate actual minutes based on these defaults
+            }
+        }
+
+        if (hoursDisplay && minutesDisplay && actualMinutesInput) {
+            hoursDisplay.addEventListener('input', updateActualMinutes);
+            minutesDisplay.addEventListener('input', updateActualMinutes);
+
+            // Initialize display fields if actualMinutesInput has a value (e.g., on edit or form error re-render)
+            populateDisplayFromActual();
+        }
+    });
+</script>
+{# --- END JAVASCRIPT --- #}
+{% endblock %}

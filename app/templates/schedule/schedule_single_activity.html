@@ -1,0 +1,65 @@
+{% extends "layout.html" %}
+
+{% block title %}Schedule Activity: {{ activity.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Schedule Activity: <span class="fw-normal">{{ activity.name }}</span></h2>
+    <a href="{{ url_for('activities.list_activities') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left-circle"></i> Back to Definitions
+    </a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Scheduling Details</h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">
+            <strong>Activity Type:</strong> {{ activity.name }} ({{ activity.duration_minutes }} minutes) <br>
+            {% if activity.description %}
+            <em>{{ activity.description }}</em>
+            {% endif %}
+        </p>
+        <hr>
+        <form method="POST" action="" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-4 mb-3">
+                    {{ form.kid_id.label(class="form-label") }}
+                    {{ form.kid_id(class="form-select" + (" is-invalid" if form.kid_id.errors else "")) }}
+                    {% if form.kid_id.errors %}<div class="invalid-feedback">{% for e in form.kid_id.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {{ form.schedule_date.label(class="form-label") }}
+                    {{ form.schedule_date(class="form-control" + (" is-invalid" if form.schedule_date.errors else "")) }}
+                    {% if form.schedule_date.errors %}<div class="invalid-feedback">{% for e in form.schedule_date.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {{ form.start_time.label(class="form-label") }}
+                    {{ form.start_time(class="form-control" + (" is-invalid" if form.start_time.errors else "")) }}
+                    {% if form.start_time.errors %}<div class="invalid-feedback">{% for e in form.start_time.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-md-6 mb-3">
+                    {{ form.supervisor_assigned.label(class="form-label") }}
+                    {{ form.supervisor_assigned(class="form-control", placeholder="Optional") }}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {{ form.transport_provider.label(class="form-label") }}
+                    {{ form.transport_provider(class="form-control", placeholder="Optional") }}
+                </div>
+            </div>
+            <div class="mb-3">
+                {{ form.notes.label(class="form-label") }}
+                {{ form.notes(class="form-control", rows="2", placeholder="Optional notes for this specific instance...") }}
+            </div>
+            <div class="mt-4">
+                {{ form.submit(class="btn btn-success") }}
+                <a href="{{ url_for('activities.list_activities') }}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

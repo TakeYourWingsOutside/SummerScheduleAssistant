@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+
+{% block title %}Export Schedule - Summer Scheduler{% endblock %}
+
+{% block content %}
+<h2>Export Schedule</h2>
+<p>Select a kid, date range, and desired format to generate an export file.</p>
+
+<form method="POST" action="">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+        {{ form.kid_id.label }}
+        {{ form.kid_id() }}
+        {% if form.kid_id.errors %}
+        <ul class="errors">{% for error in form.kid_id.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+        {% endif %}
+    </div>
+    <div class="form-group">
+        {{ form.start_date.label }}
+        {{ form.start_date() }}
+        {% if form.start_date.errors %}
+        <ul class="errors">{% for error in form.start_date.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+        {% endif %}
+    </div>
+    <div class="form-group">
+        {{ form.end_date.label }}
+        {{ form.end_date() }}
+        {% if form.end_date.errors %}
+        <ul class="errors">{% for error in form.end_date.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+        {% endif %}
+    </div>
+    <div class="form-group">
+        {{ form.export_format.label }}
+        {{ form.export_format() }}
+        {% if form.export_format.errors %}
+        <ul class="errors">{% for error in form.export_format.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+        {% endif %}
+    </div>
+    <div class="form-group">
+        {{ form.submit_export(class="btn btn-primary") }}
+    </div>
+</form>
+{% endblock %}

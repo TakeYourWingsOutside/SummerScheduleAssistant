@@ -1,0 +1,548 @@
+{% extends "layout.html" %}
+
+{% block title %}Weekly Schedule - Summer Scheduler{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap"> {# Added flex-wrap for smaller screens #}
+    <h2 class="mb-2 me-3">Weekly Schedule</h2> {# Added margin for spacing #}
+    <div class="mb-2"> {# Wrapper for the filter #}
+        <label for="kidFilter" class="form-label me-2">Filter by Kid:</label>
+        <select id="kidFilter" class="form-select form-select-sm d-inline-block" style="width: auto;">
+            <option value="all" selected>All Kids</option>
+            {% if all_kids_for_modal %} {# Re-using the same variable passed for the create modal #}
+            {% for kid in all_kids_for_modal %}
+            <option value="{{ kid.id }}">{{ kid.name }}</option>
+            {% endfor %}
+            {% endif %}
+        </select>
+    </div>
+</div>
+<div id='calendar'></div>
+
+<!-- Create Event Modal -->
+<div class="modal fade" id="createEventModal" tabindex="-1" aria-labelledby="createEventModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createEventModalLabel">Create New Event</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createEventForm">
+                    {# CSRF token can be added here if needed for AJAX form submission #}
+                    {# <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"> #}
+
+                    <input type="hidden" id="newEventStartTime" name="start_time">
+                    <input type="hidden" id="newEventEndTime" name="end_time">
+                    <input type="hidden" id="newEventAllDay" name="all_day">
+
+                    <div class="mb-3">
+                        <label for="newEventKidId" class="form-label">Kid:</label>
+                        <select class="form-select" id="newEventKidId" name="kid_id" required>
+                            <option value="" selected disabled>--- Select a Kid ---</option>
+                            {% if all_kids_for_modal %}
+                            {% for kid in all_kids_for_modal %}
+                            <option value="{{ kid.id }}">{{ kid.name }}</option>
+                            {% endfor %}
+                            {% else %}
+                            <option value="" disabled>No kids loaded</option>
+                            {% endif %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="newEventActivityId" class="form-label">Activity:</label>
+                        <select class="form-select" id="newEventActivityId" name="activity_id" required disabled>
+                            <option value="" selected disabled>--- Select Kid First ---</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="newEventNotes" class="form-label">Notes (Optional):</label>
+                        <textarea class="form-control" id="newEventNotes" name="notes" rows="2"></textarea>
+                    </div>
+                    <!-- Consider adding supervisor/transport fields for quick add if commonly needed -->
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveNewEventButton">Save Event</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    var globalCalendarInstance = null;
+    var createEventModalInstance = null;
+
+    function formatDateTimeForBackend(dateObj) {
+        if (!dateObj) return null;
+        const pad = (num) => String(num).padStart(2, '0');
+        return `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}:${pad(dateObj.getSeconds())}`;
+    }
+
+    function handleEventUpdate(event, updateType, oldEvent, revertFunc) {
+        if (!event.start || !event.end) {
+            console.error("Event start or end time is missing for update.");
+            if (revertFunc && typeof revertFunc === 'function') revertFunc();
+            return;
+        }
+        const eventData = {
+            id: event.id,
+            new_start: formatDateTimeForBackend(event.start),
+            new_end: formatDateTimeForBackend(event.end)
+        };
+        console.log(`Attempting to ${updateType} event ID ${event.id}: new_start=${eventData.new_start}, new_end=${eventData.new_end}`);
+        fetch(`{{ url_for('schedule_api.api_update_event_time') }}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(eventData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        let errorMessage = err.message || `Server error: ${response.status}`;
+                        if (response.status === 409) errorMessage = err.message || "Time conflict occurred.";
+                        throw new Error(errorMessage);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    console.log('Event updated successfully:', data.message);
+                } else {
+                    console.error('Failed to update event (server success:false):', data.message);
+                    showToast('Error: ' + (data.message || 'Update failed.'), 'error');
+                    if (revertFunc && typeof revertFunc === 'function') revertFunc();
+                }
+            })
+            .catch(error => {
+                console.error('Error during event update (fetch catch):', error);
+                showToast('Error updating event: ' + error.message, 'error');ƒ
+                if (revertFunc && typeof revertFunc === 'function') revertFunc();
+            });
+    }
+
+    function openCreateEventModal(start, end, allDay) {
+        if (!createEventModalInstance) {
+            var modalEl = document.getElementById('createEventModal');
+            if (!modalEl) {
+                console.error("Create Event Modal element not found!");
+                return;
+            }
+            createEventModalInstance = new bootstrap.Modal(modalEl);
+        }
+        document.getElementById('createEventForm').reset();
+        document.getElementById('newEventActivityId').innerHTML = '<option value="" selected disabled>--- Select Kid First ---</option>';
+        document.getElementById('newEventActivityId').disabled = true;
+
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+
+        document.getElementById('newEventStartTime').value = formatDateTimeForBackend(startDate);
+        document.getElementById('newEventEndTime').value = formatDateTimeForBackend(endDate);
+        document.getElementById('newEventAllDay').value = allDay;
+
+        let modalTitle = `Create Event on ${startDate.toLocaleDateString()}`;
+        if (!allDay) { // Only add times if not an all-day event (though our app doesn't really handle allDay well yet)
+            modalTitle += ` from ${startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} to ${endDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+        }
+        document.getElementById('createEventModalLabel').textContent = modalTitle;
+
+        createEventModalInstance.show();
+    }
+
+    async function populateModalActivities(kidId) {
+        const activitySelect = document.getElementById('newEventActivityId');
+        activitySelect.innerHTML = '<option value="" selected disabled>Loading activities...</option>';
+        activitySelect.disabled = true;
+
+        if (!kidId) {
+            activitySelect.innerHTML = '<option value="" selected disabled>--- Select Kid First ---</option>';
+            return;
+        }
+        try {
+            const response = await fetch(`{{ url_for('schedule_api.api_get_activities_for_kid') }}?kid_id=${kidId}`);
+            if (!response.ok) throw new Error('Failed to fetch activities. Status: ' + response.status);
+            const activities = await response.json();
+
+            if (activities && activities.length > 0) { // Check if activities is an array and has items
+                activitySelect.innerHTML = '<option value="" selected disabled>--- Select Activity ---</option>';
+                activities.forEach(act => {
+                    const option = document.createElement('option');
+                    option.value = act.id;
+                    option.textContent = `${act.name} (${act.duration_minutes} min)`; // Show duration
+                    activitySelect.appendChild(option);
+                });
+                activitySelect.disabled = false;
+            } else {
+                activitySelect.innerHTML = '<option value="" selected disabled>No activities for this kid</option>';
+            }
+        } catch (error) {
+            console.error("Error populating activities:", error);
+            activitySelect.innerHTML = '<option value="" selected disabled>Error loading activities</option>';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        if (!calendarEl) {
+            console.error("Calendar element with ID 'calendar' not found!");
+            return;
+        }
+
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'timeGridWeek',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+            },
+            events: {
+                url: '{{ url_for("schedule_api.api_get_events") }}',
+                // Add extraParams to send the kid_id filter
+                extraParams: function() { // Function to dynamically get parameters
+                    var kidFilterEl = document.getElementById('kidFilter');
+                    if (kidFilterEl && kidFilterEl.value !== "" && kidFilterEl.value !== "all") {
+                        return { kid_id: kidFilterEl.value };
+                    }
+                    return {}; // No kid_id if "all" or not selected
+                },
+                failure: function(errorObj) {
+                    showToast('Error fetching calendar events. Please try refreshing.', 'error');
+                    console.error("Failed to fetch events from API:", errorObj);
+                }
+            },
+            editable: true,
+            selectable: true,
+            selectMirror: true,
+            eventTimeFormat: {
+                hour: 'numeric',
+                minute: '2-digit',
+                meridiem: 'short'
+            },
+            eventClick: function(info) {
+                if (info.event.id) {
+                    window.location.href = `/schedule/event/${info.event.id}/edit_details`;
+                } else {
+                    console.error('Clicked event has no ID:', info.event);
+                    showToast('Cannot load details: Event ID missing.', 'warning');
+                }
+                info.jsEvent.preventDefault();
+            },
+            eventDrop: function(dropInfo) {
+                console.log(dropInfo.event.title + " was dropped on " + dropInfo.event.start.toISOString());
+                // Removed confirm for smoother testing, add back if desired
+                // if (!confirm("Are you sure about this change?")) {
+                //     dropInfo.revert();
+                // } else {
+                handleEventUpdate(dropInfo.event, 'drop', dropInfo.oldEvent, dropInfo.revert);
+                // }
+            },
+            eventResize: function(resizeInfo) {
+                console.log(resizeInfo.event.title + " was resized to end on " + resizeInfo.event.end.toISOString());
+                // Removed confirm for smoother testing
+                // if (!confirm("Are you sure about this resize?")) {
+                //    resizeInfo.revert();
+                // } else {
+                handleEventUpdate(resizeInfo.event, 'resize', resizeInfo.oldEvent, resizeInfo.revert);
+                // }
+            },
+            select: function(selectInfo) {
+                console.log('Selected from ' + selectInfo.startStr + ' to ' + selectInfo.endStr + ' allDay:' + selectInfo.allDay);
+                openCreateEventModal(selectInfo.start, selectInfo.end, selectInfo.allDay);
+                if(globalCalendarInstance) globalCalendarInstance.unselect();
+            },
+            loading: function(isLoading) {
+                // if (isLoading) console.log('Calendar is loading events...');
+                // else console.log('Events have been loaded.');
+            },
+            eventContent: function(arg) {
+                let kidName = arg.event.extendedProps.kidName || '';
+                let activityName = arg.event.title;
+
+                let kidFilterEl = document.getElementById('kidFilter');
+                let isFilteredByKid = kidFilterEl && kidFilterEl.value && kidFilterEl.value !== 'all';
+                let titlePrefix = (!isFilteredByKid && kidName) ? `<strong>${kidName}:</strong> ` : '';
+
+                let status = arg.event.extendedProps.status || '';
+                let statusHtml = '';
+                if (status && status !== 'Scheduled' && status !== 'Confirmed' && status !== 'Scheduled (Camp)') {
+                    statusHtml = `<br><small>Status: ${status}</small>`;
+                }
+
+                // Create the main content div
+                const contentEl = document.createElement('div');
+                contentEl.classList.add('fc-event-main-content');
+                contentEl.innerHTML = `${titlePrefix}${activityName}${statusHtml}`;
+
+                // Create the delete button element
+                const deleteButtonEl = document.createElement('button');
+                deleteButtonEl.type = 'button';
+                deleteButtonEl.classList.add('btn', 'btn-danger', 'btn-sm', 'fc-event-delete-btn');
+                deleteButtonEl.style.cssText = 'float: right; font-size: 0.7em; line-height: 1; padding: 0px 4px; margin-left: 5px; opacity: 0.6;';
+                deleteButtonEl.title = "Remove this entry";
+                deleteButtonEl.innerHTML = '<i class="bi bi-x-lg"></i>';
+                deleteButtonEl.dataset.eventId = arg.event.id; // Store event ID
+
+                // --- ATTACH DEDICATED CLICK LISTENER TO THE DELETE BUTTON ---
+                deleteButtonEl.addEventListener('click', function(mouseEvent) {
+                    mouseEvent.preventDefault();
+                    mouseEvent.stopPropagation(); // Crucial: stop propagation immediately
+
+                    const eventId = this.dataset.eventId; // 'this' refers to the button
+                    const fcEventInstance = globalCalendarInstance.getEventById(eventId);
+                    let eventTitle = "this event";
+                    if (fcEventInstance && fcEventInstance.title) {
+                        eventTitle = `'${fcEventInstance.title}'`;
+                    }
+
+                    if (confirm(`Are you sure you want to remove ${eventTitle} from the schedule?`)) {
+                        const formData = new FormData();
+                        // CSRF if needed
+                        // const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                        // if (csrfToken) { formData.append('csrf_token', csrfToken); }
+
+                        fetch(`{{ url_for('schedule.delete_scheduled_event', event_id=0) }}`.replace('/0', '/' + eventId), {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => {
+                                if (!response.ok) {
+                                    return response.json().then(err => { throw new Error(err.message || `Server error: ${response.status}`); })
+                                        .catch(() => { throw new Error(`Server error: ${response.status} - ${response.statusText}`); });
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.success) {
+                                    showToast(data.message || (eventTitle + ' removed successfully.'), 'success');
+                                    if (fcEventInstance) { // Use the instance we already have
+                                        fcEventInstance.remove();
+                                    } else if (globalCalendarInstance) { // Fallback if instance somehow lost
+                                        const eventToDel = globalCalendarInstance.getEventById(eventId);
+                                        if (eventToDel) eventToDel.remove();
+                                        else globalCalendarInstance.refetchEvents();
+                                    }
+                                } else {
+                                    showToast('Error removing event: ' + (data.message || 'Unknown server error'), 'error');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Fetch error removing event:', error);
+                                showToast('Error removing event: ' + error.message, 'error');
+                            });
+                    }
+                });
+                // --- END DEDICATED CLICK LISTENER ---
+
+                // Create a container for the content and the button
+                const eventWrapperEl = document.createElement('div');
+                eventWrapperEl.appendChild(contentEl);  // Add main content first
+                eventWrapperEl.appendChild(deleteButtonEl); // Then the button
+
+                // Return DOM nodes
+                return { domNodes: [eventWrapperEl] };
+            },
+            eventDataTransform: function(eventData) {
+                if (eventData.extendedProps && eventData.extendedProps.kidColor) {
+                    return {
+                        ...eventData,
+                        backgroundColor: eventData.extendedProps.kidColor,
+                        borderColor: eventData.extendedProps.kidColor
+                    };
+                }
+                return eventData;
+            }
+        });
+
+        globalCalendarInstance = calendar;
+        try {
+            calendar.render();
+            console.log("FullCalendar rendered successfully.");
+        } catch (e) {
+            console.error("Error rendering FullCalendar:", e);
+        }
+
+        // --- JAVASCRIPT FOR HANDLING DELETE BUTTON CLICKS ---
+        if (calendarEl) {
+            calendarEl.addEventListener('click', function(mouseEvent) { // Changed 'info' to 'mouseEvent' for clarity
+                let targetElement = mouseEvent.target;
+                let deleteButton = null;
+
+                // Traverse up to find the delete button, in case the icon itself was clicked
+                let currentTarget = targetElement;
+                while (currentTarget && currentTarget !== calendarEl) {
+                    if (currentTarget.classList && currentTarget.classList.contains('fc-event-delete-btn')) {
+                        deleteButton = currentTarget;
+                        break;
+                    }
+                    currentTarget = currentTarget.parentElement;
+                }
+
+                if (deleteButton) {
+                    mouseEvent.preventDefault();  // Prevent any default action of the button/link
+                    mouseEvent.stopPropagation(); // Stop the event from bubbling up to FC's eventClick
+
+                    const eventId = deleteButton.dataset.eventId;
+                    const fcEventInstance = globalCalendarInstance.getEventById(eventId);
+                    let eventTitle = "this event";
+                    if (fcEventInstance && fcEventInstance.title) {
+                        eventTitle = `'${fcEventInstance.title}'`;
+                    }
+
+                    if (confirm(`Are you sure you want to remove ${eventTitle} from the schedule?`)) {
+                        const formData = new FormData();
+                        // CSRF logic if needed:
+                        // const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                        // if (csrfToken) { formData.append('csrf_token', csrfToken); }
+
+                        fetch(`{{ url_for('schedule.delete_scheduled_event', event_id=0) }}`.replace('/0', '/' + eventId), {
+                            method: 'POST',
+                            body: formData
+                            // headers: { 'X-CSRFToken': csrfToken }
+                        })
+                            .then(response => {
+                                if (!response.ok) {
+                                    return response.json().then(err => {
+                                        throw new Error(err.message || `Server error: ${response.status}`);
+                                    }).catch(() => {
+                                        throw new Error(`Server error: ${response.status} - ${response.statusText}`);
+                                    });
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.success) {
+                                    showToast(data.message || (eventTitle + ' removed successfully.'), 'success');
+                                    if (globalCalendarInstance) {
+                                        const eventToRemove = globalCalendarInstance.getEventById(eventId);
+                                        if (eventToRemove) {
+                                            eventToRemove.remove();
+                                        } else {
+                                            globalCalendarInstance.refetchEvents();
+                                        }
+                                    }
+                                } else {
+                                    showToast('Error removing event: ' + (data.message || 'Unknown server error'), 'error');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Fetch error removing event:', error);
+                                showToast('Error removing event: ' + error.message, 'error');
+                            });
+                    }
+                    return false; // Explicitly return false to further ensure no other handlers fire
+                }
+            });
+        }
+        // --- END JAVASCRIPT FOR DELETE ---
+
+        // FullCalendar Initialization
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            // ... other options ...
+            eventClick: function(info) { // This is the general event click
+                // This should NOT fire if the delete button's handler already ran and stopped propagation
+                console.log("General eventClick fired for:", info.event.title);
+
+                // Check if the actual click target was our delete button or its icon.
+                // This is an additional safeguard.
+                if (info.jsEvent.target.classList.contains('fc-event-delete-btn') ||
+                    info.jsEvent.target.closest('.fc-event-delete-btn')) {
+                    // console.log("eventClick: Delete button was the target, doing nothing here.");
+                    return; // Do nothing if the delete button was clicked.
+                }
+
+                if (info.event.id) {
+                    window.location.href = `/schedule/event/${info.event.id}/edit_details`;
+                } else {
+                    console.error('Clicked event has no ID:', info.event);
+                    showToast('Cannot load details: Event ID missing.', 'warning');
+                }
+                // No need for info.jsEvent.preventDefault() here unless the event object itself has a URL property.
+            },
+            // ... rest of your calendar options (eventDrop, eventResize, eventContent, etc.) ...
+        });
+
+
+
+        const kidFilterEl = document.getElementById('kidFilter');
+        if (kidFilterEl) {
+            kidFilterEl.addEventListener('change', function() {
+                if(globalCalendarInstance) {
+                    console.log("Kid filter changed to: ", this.value);
+                    globalCalendarInstance.refetchEvents(); // Refetch events with new kid_id parameter
+                }
+            });
+        }
+
+
+        const kidSelectModal = document.getElementById('newEventKidId');
+        if (kidSelectModal) {
+            kidSelectModal.addEventListener('change', function() {
+                populateModalActivities(this.value);
+            });
+        }
+
+        const saveButton = document.getElementById('saveNewEventButton');
+        if (saveButton) {
+            saveButton.addEventListener('click', function() {
+                // const form = document.getElementById('createEventForm'); // Not strictly needed if accessing by ID
+                const kidId = document.getElementById('newEventKidId').value;
+                const activityId = document.getElementById('newEventActivityId').value;
+                const startTimeStr = document.getElementById('newEventStartTime').value;
+                const endTimeStr = document.getElementById('newEventEndTime').value;
+                const notes = document.getElementById('newEventNotes').value;
+
+                if (!kidId || !activityId) {
+                    showToast("Please select a kid and an activity.", 'warning');
+                    return;
+                }
+                // Basic validation for activityId (ensure it's not the placeholder)
+                if(activityId === "" || activityId === "0" || document.getElementById('newEventActivityId').disabled) {
+                    showToast("Please select a valid activity.", 'warning');
+                    return;
+                }
+
+
+                const eventData = {
+                    kid_id: kidId,
+                    activity_id: activityId,
+                    start_datetime: startTimeStr,
+                    // end_datetime: endTimeStr, // Backend calculates end time based on activity duration
+                    notes: notes
+                };
+
+                fetch(`{{ url_for('schedule_api.api_create_event') }}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(eventData)
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(err => { throw new Error(err.message || 'Creation failed'); });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            console.log("Event created successfully:", data.message);
+                            if (createEventModalInstance) createEventModalInstance.hide();
+                            if (globalCalendarInstance) globalCalendarInstance.refetchEvents();
+                        } else {
+                            showToast("Error creating event: " + (data.message || 'Unknown error'), 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error creating event:", error);
+                        showToast("Error: " + error.message, 'error');
+                    });
+            });
+        }
+    });
+</script>
+{% endblock %}

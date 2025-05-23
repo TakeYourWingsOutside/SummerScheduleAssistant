@@ -1,0 +1,89 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard - Summer Scheduler{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Dashboard</h1>
+    <a href="{{ url_for('schedule.view_day_schedule', date=todays_date.strftime('%Y-%m-%d')) }}" class="btn btn-info">
+        <i class="bi bi-calendar-day"></i> View Full Day Schedule for Today
+    </a>
+</div>
+
+<p class="lead">Today is: <strong>{{ todays_date.strftime('%A, %B %d, %Y') }}</strong></p>
+
+<hr>
+
+{% if todays_events_by_kid %}
+<h2>Today's Schedule:</h2>
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% for kid, events in todays_events_by_kid.items() %}
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="card-title mb-0">{{ kid.name }}'s Schedule</h5>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for event in events %}
+                <li class="list-group-item">
+                    <strong>{{ event.start_time.strftime('%I:%M %p') }} - {{ event.end_time.strftime('%I:%M %p') }}</strong><br>
+                    {{ event.activity_details.name }}
+
+                    <small class="d-block text-muted">
+                        Status: {{ event.status }}
+                        {% if event.linked_event_pair %}
+                        (with {{ event.linked_event_pair.kid.name }})
+                        {% endif %}
+                    </small>
+
+                    {% if event.supervisor_assigned %}
+                    <span class="badge bg-warning text-dark mt-1">Supervisor: {{ event.supervisor_assigned }}</span>
+                    {% elif event.activity_details.requires_supervision %}
+                    <span class="badge bg-warning text-dark mt-1"><i class="bi bi-eye-fill"></i> Needs Supervisor</span>
+                    {% endif %}
+
+                    {% if event.transport_provider %}
+                    <span class="badge bg-info text-dark mt-1">Transport: {{ event.transport_provider }} ({{event.start_time.strftime('%I:%M%p')}}-{{event.end_time.strftime('%I:%M%p')}})</span>
+                    {% elif event.activity_details.requires_transportation %}
+                    <span class="badge bg-info text-dark mt-1"><i class="bi bi-car-front-fill"></i> Needs Transport</span>
+                    {% endif %}
+
+                    {% if event.notes %}
+                    <p class="card-text mt-1 mb-0"><small><em>Notes: {{ event.notes }}</em></small></p>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            <div class="card-footer bg-light text-center">
+                <a href="{{ url_for('schedule.view_day_schedule', date=todays_date.strftime('%Y-%m-%d'), kid_id=kid.id) }}" class="btn btn-sm btn-outline-primary">
+                    View {{ kid.name }}'s Full Day
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-success mt-4" role="alert">
+    <h4 class="alert-heading">It's a Free Day!</h4>
+    <p>No activities scheduled for today. Enjoy the unscheduled time!</p>
+    <hr>
+    <p class="mb-0">You can always <a href="{{ url_for('schedule.view_day_schedule', date=todays_date.strftime('%Y-%m-%d')) }}" class="alert-link">add some activities for today</a> or <a href="{{ url_for('schedule.trigger_range_schedule') }}" class="alert-link">auto-schedule the week</a>.</p>
+</div>
+{% endif %}
+
+<hr class="my-4">
+
+{# You can keep the general kids list if you like, or remove it #}
+<h4>Kids in System:</h4>
+{% if kids %}
+<ul>
+    {% for kid_obj in kids %} {# Changed variable name to avoid conflict #}
+    <li>{{ kid_obj.name }} ({{ kid_obj.age }})</li>
+    {% endfor %}
+</ul>
+{% else %}
+<p>No kids found in the system.</p>
+{% endif %}
+
+{% endblock %}

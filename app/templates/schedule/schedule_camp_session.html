@@ -1,0 +1,74 @@
+{% extends "layout.html" %}
+
+{% block title %}Schedule Camp Session - {{ activity.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Schedule New Session for Camp: <span class="fw-normal">{{ activity.name }}</span></h2>
+    <a href="{{ url_for('activities.list_activities') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left-circle"></i> Back to Definitions
+    </a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Session Details</h5>
+    </div>
+    <div class="card-body">
+        {% if activity.description %}
+        <p class="text-muted"><strong>About this camp type:</strong> {{ activity.description }}</p>
+        {% endif %}
+        <p class="text-muted">
+            Default cost: ${{ "%.2f"|format(activity.default_camp_cost) if activity.default_camp_cost is not none else 'Not set' }}.
+            Default overnight: {{ 'Yes' if activity.default_is_overnight else 'No' }}.
+            Default duration per day: {{ activity.duration_minutes }} minutes.
+        </p>
+        <hr>
+
+        <form method="POST" action="" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-12 mb-3">
+                    {{ form.kid_id.label(class="form-label") }}
+                    {{ form.kid_id(class="form-select" + (" is-invalid" if form.kid_id.errors else "")) }}
+                    {% if form.kid_id.errors %}<div class="invalid-feedback">{% for e in form.kid_id.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6 mb-3">
+                    {{ form.session_start_date.label(class="form-label") }}
+                    {{ form.session_start_date(class="form-control" + (" is-invalid" if form.session_start_date.errors else "")) }}
+                    {% if form.session_start_date.errors %}<div class="invalid-feedback">{% for e in form.session_start_date.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {{ form.session_end_date.label(class="form-label") }}
+                    {{ form.session_end_date(class="form-control" + (" is-invalid" if form.session_end_date.errors else "")) }}
+                    {% if form.session_end_date.errors %}<div class="invalid-feedback">{% for e in form.session_end_date.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6 mb-3">
+                    {{ form.session_cost.label(class="form-label") }}
+                    {{ form.session_cost(class="form-control" + (" is-invalid" if form.session_cost.errors else ""), placeholder="Override default if needed") }}
+                    {% if form.session_cost.errors %}<div class="invalid-feedback">{% for e in form.session_cost.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3 d-flex align-items-center"> {# For vertical centering of checkbox #}
+                    <div class="form-check mt-3">
+                        {{ form.session_is_overnight(class="form-check-input") }}
+                        {{ form.session_is_overnight.label(class="form-check-label") }}
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                {{ form.notes.label(class="form-label") }}
+                {{ form.notes(class="form-control" + (" is-invalid" if form.notes.errors else ""), rows="3", placeholder="Any notes specific to this camp session...") }}
+                {% if form.notes.errors %}<div class="invalid-feedback">{% for e in form.notes.errors %}<span>{{e}}</span>{% endfor %}</div>{% endif %}
+            </div>
+            <div class="mt-4">
+                {{ form.submit_schedule_camp(class="btn btn-success") }}
+                <a href="{{ url_for('activities.list_activities') }}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
